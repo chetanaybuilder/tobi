@@ -6,15 +6,15 @@ import os
 app = Flask(__name__)
 app.secret_key = "chetanay"
 
-# Initialize Gemini Client
-client = genai.Client(api_key=os.environ.get("gemini_api_key"))
+# Safely initialize Gemini Client
+api_key = os.environ.get("gemini_api_key") or os.environ.get("GEMINI_API_KEY")
+client = genai.Client(api_key=api_key) if api_key else None
 
-# --- Database Setup (Runs on startup) ---
+# --- Database Setup ---
 def init_db():
     conn = sqlite3.connect("chatbot.db")
     cursor = conn.cursor()
     
-    # Table for storing user accounts
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS users(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -24,7 +24,6 @@ def init_db():
     )
     """)
     
-    # Table for storing user messages (linked to user_id)
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS messages(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -35,14 +34,17 @@ def init_db():
     )
     """)
     
+    # Create default admin user
+    cursor.execute("""
+    INSERT OR IGNORE INTO users (username, email, password)
+    VALUES ('chetanay', 'admin@gmail.com', '123456')
+    """)
+    
     conn.commit()
     conn.close()
 
-# Run setup
 init_db()
 
-
-# --- Routes ---
 
 @app.route("/")
 def home():
@@ -63,23 +65,18 @@ def chat():
     if request.method == "POST":
         user_message = request.form.get("message")
         if user_message:
-            # Gemini Prompt Call
-            result = client.models.generate_content(
-                model="gemini-2.5-flash",
-                contents=f"""You are Chetanay AI.
-                
-                Rules:
-                - Keep answers concise (80–150 words).
-                - Use single-line bullet points starting with •.
-                - Max 2 sentences per paragraph.
-                - Use only 1-2 Apple-style emojis.
-                
-                User question: {user_message}"""
-            )
+            if not client:
+                bot_reply = "API Key not configured on server!"
+            else:
+                try:
+                    result = client.models.generate_content(
+                        model="gemini-2.5-flash",
+                        contents=f"You are Chetanay AI.\n\nUser question: {user_message}"
+                    )
+                    bot_reply = getattr(result, "text", None) or str(result)
+                except Exception as e:
+                    bot_reply = f"Error calling AI: {str(e)}"
             
-            bot_reply = getattr(result, "text", None) or str(result)
-            
-            # Save message specific to current logged-in user
             cursor.execute("""
                 INSERT INTO messages(user_id, user_message, bot_response)
                 VALUES(?, ?, ?)
@@ -87,7 +84,6 @@ def chat():
             conn.commit()
             response = bot_reply
 
-    # Fetch chat history ONLY for the logged-in user
     cursor.execute("SELECT * FROM messages WHERE user_id = ? ORDER BY id", (user_id,))
     rows = cursor.fetchall()
     conn.close()
@@ -98,10 +94,13 @@ def chat():
 @app.route("/register", methods=["GET", "POST"])
 def register():
     if request.method == "POST":
-        username = request.form.get("username")
-        email = request.form.get("email")
-        password = request.form.get("password")
+        username = request.form.get("username", "").strip()
+        email = request.form.get("email", "").strip().lower()
+        password = request.form.get("password", "").strip()
         
+        if not username or not email or not password:
+            return render_template("register.html", error="All fields are required!")
+
         try:
             conn = sqlite3.connect("chatbot.db")
             cursor = conn.cursor()
@@ -112,6 +111,8 @@ def register():
             return redirect(url_for("login"))
         except sqlite3.IntegrityError:
             return render_template("register.html", error="Email already exists!")
+        except Exception as e:
+            return render_template("register.html", error=f"Database error: {str(e)}")
 
     return render_template("register.html")
 
@@ -119,8 +120,8 @@ def register():
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
-        email = request.form.get("email")
-        password = request.form.get("password")
+        email = request.form.get("email", "").strip().lower()
+        password = request.form.get("password", "").strip()
 
         conn = sqlite3.connect("chatbot.db")
         cursor = conn.cursor()
