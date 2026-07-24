@@ -8,7 +8,7 @@ app.secret_key = "chetanay"
 
 
 # Keep your exact API key setup
-client = genai.Client(api_key=os.environ("gemini_api_key"))
+client = genai.Client(api_key=os.environ.get("gemini_api_key"))
 conn = sqlite3.connect("chatbot.db", check_same_thread=False)
 cursor = conn.cursor()
 
