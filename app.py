@@ -201,53 +201,42 @@ rewrite your answer until every rule is satisfied.
 @app.route("/register", methods=["GET", "POST"])
 def register():
     if request.method == "POST":
-        username = request.form["username"]
-        email = request.form["email"]
-        password = request.form["password"]
-        
-        print(username)
-        print(email)
-        print(password)
+        username = request.form.get("username")
+        email = request.form.get("email")
+        password = request.form.get("password")
         
         try:
-            cursor.execute("""
-                INSERT INTO users(username,email,password) VALUES(?,?,?)""",
-                (username, email, password)
-            )
-            conn.commit()
-            
-            # 👇 THIS IS THE ONLY LINE I ADDED 👇
-            # After successful registration, push them to the login page!
-            return redirect(url_for("login")) 
-            
+            conn = sqlite3.connect("chatbot.db")
+            cursor = conn.cursor()
+            cursor.execute("INSERT INTO users (username, email, password) VALUES (?, ?, ?)", 
+                           (username, email, password))
+            conn.commit() # 👈 CRITICAL: Saves the new user to disk!
+            conn.close()
+            return redirect(url_for("login"))
         except sqlite3.IntegrityError:
-            # ignore duplicate email for simplicity
-            pass
-            
+            return render_template("register.html", error="Email already exists!")
+
     return render_template("register.html")
 
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
-        email = request.form["email"]
-        password = request.form["password"]
-        
-        cursor.execute("""
-            SELECT * FROM users WHERE email=? AND password=?""",
-            (email, password)
-        )
-        
-        user = cursor.fetchone()
-        
-        if user:
-          session["user_id"] = user[0]  
-          print(session)    
-          return redirect(url_for("index"))
-        else:
-            return "invalid email or password"
+        email = request.form.get("email")
+        password = request.form.get("password")
 
-            
+        conn = sqlite3.connect("chatbot.db")
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM users WHERE email=? AND password=?", (email, password))
+        user = cursor.fetchone()
+        conn.close()
+
+        if user:
+            session["user_id"] = user[0]
+            return redirect(url_for("index"))
+        else:
+            return render_template("login.html", error="Invalid email or password")
+
     return render_template("login.html")
 
 
