@@ -155,4 +155,6 @@ async def stream(system_prompt, history):
 
     # If we get here, all models failed
     log.error("All models failed. Raising final error.")
-    raise last_error
+    if last_error is not None:
+        raise last_error
+    raise RuntimeError("All models failed, but no specific error was captured.")
