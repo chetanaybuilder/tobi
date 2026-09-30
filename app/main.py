@@ -25,6 +25,10 @@ async def headers(request: Request, call_next):
 async def boom(request, exc):
     log.exception("unhandled"); return JSONResponse({"detail": "Something went wrong. Please try again."}, 500)
 
+@app.get("/api/health")
+def health():
+    return {"status": "ok"}
+
 def conv_out(c): return dict(id=c.id, mode_id=c.mode_id, title=c.title, is_pinned=c.is_pinned, is_archived=c.is_archived, updated_at=c.updated_at.isoformat() if c.updated_at else None)
 def own_conv(db, user, cid):
     c = db.get(Conversation, cid)
@@ -153,13 +157,13 @@ def chat_stream(b: ChatIn, u: User = Depends(current_user), db: Session = Depend
     else: raise HTTPException(400, "Message is empty")
     db.commit(); cid, mode = c.id, b.mode_id
     log.info("chat_stream: user=%s cid=%s mode=%s regenerate=%s msg_len=%d", u.id, cid, mode, b.regenerate, len(b.message))
-    def gen():
+    async def gen():
         s = SessionLocal(); buf = []
         try:
             hist = list(s.scalars(select(Message).where(Message.conversation_id == cid).order_by(Message.created_at)))
             log.info("chat_stream gen: %d messages in history for cid=%s", len(hist), cid)
             yield f"data: {json.dumps({'conversation_id': cid})}\n\n"
-            for t in gemini_service.stream(system, hist):
+            async for t in gemini_service.stream(system, hist):
                 buf.append(t); yield f"data: {json.dumps({'text': t})}\n\n"
             yield f"data: {json.dumps({'done': True})}\n\n"
         except Exception as e:

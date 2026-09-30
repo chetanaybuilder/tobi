@@ -74,7 +74,7 @@ def _is_retryable(exc) -> bool:
     return any(kw in msg for kw in ['429', '500', '502', '503', '504', 'overloaded', 'resource exhausted', 'deadline', 'timeout'])
 
 
-def stream(system_prompt, history):
+async def stream(system_prompt, history):
     """Yield text chunks. Retries only before the first chunk arrives."""
     if not settings.gemini_api_key:
         raise ValueError("GEMINI_API_KEY is missing or undefined.")
@@ -100,15 +100,17 @@ def stream(system_prompt, history):
         contents[-1].role if contents else "N/A",
     )
 
+    import asyncio
     max_retries = 3
     for attempt in range(max_retries):
         started = False
         try:
-            for ch in client.models.generate_content_stream(
+            response = await client.aio.models.generate_content_stream(
                 model=settings.gemini_model,
                 contents=contents,
                 config=cfg,
-            ):
+            )
+            async for ch in response:
                 if ch.text:
                     started = True
                     yield ch.text
@@ -135,4 +137,4 @@ def stream(system_prompt, history):
             # Exponential backoff with jitter
             delay = min(2.0 * (2 ** attempt) + random.uniform(0, 1), 10.0)
             log.info("Retrying in %.1fs…", delay)
-            time.sleep(delay)
+            await asyncio.sleep(delay)
