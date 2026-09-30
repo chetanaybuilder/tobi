@@ -1,160 +1,25 @@
-# 🤖 Chetanay-AI
+# Tobi — one AI, many minds
+Multi-mode AI workspace. React (Vite, custom CSS) + FastAPI + SQLAlchemy/Alembic + Neon PostgreSQL + Gemini + Google Sign-In.
 
-A full-stack **AI chatbot web application** with user authentication, session management, and AI-powered conversations.
-
-Chetanay-AI allows users to create accounts, log in, maintain secure sessions, interact with an AI chatbot, and log out safely. This project was built to explore AI integration, backend development, authentication systems, databases, and full-stack web application architecture.
-
----
-
-# 🚀 Features
-
-- ✅ User registration system
-- ✅ User login authentication
-- ✅ Session management using Flask sessions
-- ✅ Logout functionality
-- ✅ AI chatbot interface
-- ✅ Personalized user access
-- ✅ Database integration
-- ✅ User authentication workflow
-- ✅ Flask backend
-- ✅ HTML/CSS frontend
-- ✅ Jinja2 template rendering
-
----
-
-# 🛠️ Tech Stack
-
-## Backend
-- Python
-- Flask
-
-## Frontend
-- HTML5
-- CSS3
-- Jinja2 Templates
-
-## Database
-- SQLite
-
-## AI Integration
-- Gemini api
-
-## Tools
-- Git
-- GitHub
-- VS Code
-
----
-
-# 📂 Project Structure
-
+## Setup
+1. **Neon**: create a project, copy the connection string into `DATABASE_URL` (`postgresql+psycopg://...?sslmode=require`).
+2. **Gemini**: get a key at aistudio.google.com -> `GEMINI_API_KEY`.
+3. **Google OAuth**: Cloud Console -> Credentials -> OAuth client (Web). Add `http://localhost:5173` as an Authorized JavaScript origin. Put the Client ID in `GOOGLE_CLIENT_ID` and in `frontend/.env` as `VITE_GOOGLE_CLIENT_ID`.
+4. `cp .env.example .env` and fill it in.
+5. Backend:
 ```
-chetanay-AI/
-│
-├── app.py
-├── database.db
-│
-├── templates/
-│   ├── index.html
-│   ├── login.html
-│   ├── register.html
-│   └── chat.html
-│
-├── static/
-│   └── style.css
-│
-├── requirements.txt
-│
-└── README.md
-```
-
----
-
-# ⚙️ Installation & Setup
-
-## 1. Clone the repository
-
-```bash
-git clone https://github.com/yourusername/chetanay-AI.git
-```
-
-## 2. Navigate to project folder
-
-```bash
-cd chetanay-AI
-```
-
-## 3. Install dependencies
-
-```bash
+cd backend && python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
+alembic revision --autogenerate -m init && alembic upgrade head
+uvicorn app.main:app --reload
 ```
+6. Frontend: `cd frontend && npm install && npm run dev` (Vite proxies `/api` to :8000, so cookies stay same-origin).
 
-## 4. Run the application
+## Security notes
+Gemini key, DB URL and session secret stay server-side. Google ID tokens are verified server-side (signature, audience, verified email). Sessions are signed HttpOnly SameSite=Lax cookies. Every conversation/message/custom-mode query is ownership-checked. For production: serve over HTTPS, set `COOKIE_SECURE=true`, set `FRONTEND_URL`, and put the API behind the same origin as the frontend.
 
-```bash
-python app.py
-```
+## Layout
+`backend/app/` — `modes.py` (28 modes), `gemini_service.py`, `auth.py`, `models.py`, `main.py` (routes). `frontend/src/` — `App.jsx`, `api.js`, `styles.css`.
 
-## 5. Open in browser
-
-```
-http://127.0.0.1:5000
-```
----
-
-# 🧠 Learning Outcomes
-
-Building Chetanay-AI helped me understand:
-
-- Flask application architecture
-- Creating routes and handling requests
-- User authentication systems
-- Session management
-- Login and logout workflows
-- Database integration with SQLite
-- Frontend and backend communication
-- API integration
-- Building AI-powered applications
-- Creating complete full-stack projects
-
----
-
-# 🔮 Future Improvements
-
-Planned improvements:
-
-- 🔐 Password hashing and advanced security
-- 💬 Save complete chat history
-- 👤 User-specific conversations
-- 🧠 Improved AI memory system
-- ⚡ Streaming AI responses
-- 🎨 Advanced UI/UX improvements
-- 📱 Mobile responsive design
-- 🌐 Cloud deployment
-
----
-
-# 🎯 Project Goal
-
-The goal of Chetanay-AI was to build a practical AI-powered application while learning how modern software products combine:
-
-- Frontend development
-- Backend systems
-- Databases
-- Authentication
-- Artificial Intelligence
-
-This project represents my progress in building real-world applications using Python, Flask, and AI technologies.
-
----
-
-# 👨‍💻 Author
-
-**Chetanay Batra**
-
-Building projects in Python, AI, Flask, and full-stack development.
-
----
-
-⭐ If you find this project interesting, consider giving it a star!
+## Known gaps
+Not yet implemented: edit-message, rate limiting, profile/settings pages (preferences API exists), attachments. Not run end-to-end — needs your credentials.
