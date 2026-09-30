@@ -1,16 +1,15 @@
 import logging, time, asyncio
-from google import genai
-from google.genai import types
+from groq import AsyncGroq
 from .config import settings
 
-log = logging.getLogger("gemini")
+log = logging.getLogger("ai")
 
-if settings.gemini_api_key:
-    log.info("GEMINI_API_KEY is set (length=%d)", len(settings.gemini_api_key))
+if settings.groq_api_key:
+    log.info("GROQ_API_KEY is set (length=%d)", len(settings.groq_api_key))
 else:
-    log.error("GEMINI_API_KEY is NOT set!")
+    log.error("GROQ_API_KEY is NOT set!")
 
-client = genai.Client(api_key=settings.gemini_api_key)
+client = AsyncGroq(api_key=settings.groq_api_key) if settings.groq_api_key else None
 MAX_MSGS, MAX_CHARS = 10, 12000
 
 RETRYABLE_STATUSES = {429, 500, 502, 503, 504}
@@ -43,54 +42,48 @@ class CircuitBreaker:
 model_health = {}
 def get_cb(model):
     if model not in model_health:
-        model_health[model] = CircuitBreaker(settings.gemini_model_cooldown_seconds)
+        model_health[model] = CircuitBreaker(settings.groq_model_cooldown_seconds)
     return model_health[model]
 
-def build_contents(history):
+def build_messages(system_prompt, history):
+    messages = [{"role": "system", "content": system_prompt}]
     out = []
     for m in history:
         if not m.content or not m.content.strip(): continue
-        role = "user" if m.role == "user" else "model"
-        if out and out[-1].role == role:
-            out[-1].parts[0].text += "\n\n" + m.content.strip()
+        role = "user" if m.role == "user" else "assistant"
+        if out and out[-1]["role"] == role:
+            out[-1]["content"] += "\n\n" + m.content.strip()
         else:
-            out.append(types.Content(role=role, parts=[types.Part(text=m.content.strip())]))
-    if out and out[0].role != "user": out.pop(0)
-    while out and out[-1].role != "user": out.pop()
+            out.append({"role": role, "content": m.content.strip()})
+            
     final_out, total = [], 0
     for c in reversed(out[-MAX_MSGS:]):
-        total += len(c.parts[0].text)
+        total += len(c["content"])
         if total > MAX_CHARS and final_out: break
         final_out.append(c)
     final_out = list(reversed(final_out))
-    if final_out and final_out[0].role != "user": final_out.pop(0)
-    return final_out
+    
+    messages.extend(final_out)
+    return messages
 
 def _is_retryable(exc) -> bool:
-    status = getattr(exc, 'status_code', None) or getattr(exc, 'code', None)
+    status = getattr(exc, 'status_code', None)
     if isinstance(status, int) and status in RETRYABLE_STATUSES: return True
     msg = str(exc).lower()
-    return any(kw in msg for kw in ['429', '500', '502', '503', '504', 'overloaded', 'exhausted', 'deadline', 'timeout'])
+    return any(kw in msg for kw in ['429', '500', '502', '503', '504', 'overloaded', 'timeout', 'connection', 'unavailable'])
 
 async def stream(system_prompt, history):
-    if not settings.gemini_api_key: raise ValueError("GEMINI_API_KEY is missing.")
-    contents = build_contents(history)
-    if not contents: raise ValueError("Empty contents.")
-
-    cfg = types.GenerateContentConfig(
-        system_instruction=system_prompt,
-        max_output_tokens=1024,
-        temperature=0.7,
-        http_options=types.HttpOptions(timeout=settings.gemini_request_timeout_ms),
-    )
+    if not client: raise ValueError("GROQ_API_KEY is missing.")
+    messages = build_messages(system_prompt, history)
+    if len(messages) < 2: raise ValueError("Empty contents.")
 
     models_to_try = []
-    for m in [settings.gemini_model, settings.gemini_fallback_model, settings.gemini_emergency_model]:
+    for m in [settings.groq_model, settings.groq_fallback_model, settings.groq_emergency_model]:
         if m and m not in models_to_try:
             models_to_try.append(m)
 
     last_error = None
-    ttft_timeout = settings.gemini_first_token_timeout_ms / 1000.0
+    ttft_timeout = settings.groq_first_token_timeout_ms / 1000.0
 
     for current_model in models_to_try:
         cb = get_cb(current_model)
@@ -100,15 +93,17 @@ async def stream(system_prompt, history):
             
         started = False
         try:
-            log.info("Gemini request: model=%s", current_model)
+            log.info("Groq request: model=%s", current_model)
             
-            if len(contents) > 1:
-                chat = client.aio.chats.create(model=current_model, config=cfg, history=contents[:-1])
-                response_iter = await chat.send_message_stream(contents[-1])
-            else:
-                chat = client.aio.chats.create(model=current_model, config=cfg)
-                response_iter = await chat.send_message_stream(contents[0])
-                
+            response_iter = await client.chat.completions.create(
+                model=current_model,
+                messages=messages,
+                temperature=0.7,
+                max_tokens=1024,
+                stream=True,
+                timeout=settings.groq_request_timeout_ms / 1000.0
+            )
+            
             iterator = response_iter.__aiter__()
             try:
                 first_chunk = await asyncio.wait_for(iterator.__anext__(), timeout=ttft_timeout)
@@ -120,18 +115,18 @@ async def stream(system_prompt, history):
 
             cb.record_success()
 
-            if first_chunk and first_chunk.text:
+            if first_chunk and first_chunk.choices and first_chunk.choices[0].delta.content:
                 started = True
-                yield first_chunk.text
+                yield first_chunk.choices[0].delta.content
 
-            async for ch in iterator:
-                if ch.text:
-                    yield ch.text
+            async for chunk in iterator:
+                if chunk.choices and chunk.choices[0].delta.content:
+                    yield chunk.choices[0].delta.content
                     
             return # success
 
         except Exception as e:
-            status = getattr(e, 'status_code', None) or getattr(e, 'code', None)
+            status = getattr(e, 'status_code', None)
             log.error("API Error: model=%s status=%s message=%s", current_model, status, str(e))
             last_error = e
 
@@ -142,7 +137,7 @@ async def stream(system_prompt, history):
             if isinstance(e, asyncio.TimeoutError) or _is_retryable(e):
                 cb.record_failure()
                 log.warning("Transient error/timeout on %s. Failing over immediately.", current_model)
-                continue # Fast failover to next model
+                continue
             else:
                 log.error("Non-retryable error on %s. Failing over.", current_model)
                 continue

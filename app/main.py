@@ -7,7 +7,7 @@ from google.auth.transport import requests as greq
 from pydantic import BaseModel, Field
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
-from . import gemini_service
+from . import ai_service
 from .auth import current_user, make_token, MAX_AGE
 from .config import settings
 from .database import get_db, SessionLocal
@@ -171,7 +171,7 @@ def chat_stream(b: ChatIn, u: User = Depends(current_user), db: Session = Depend
             hist = list(s.scalars(select(Message).where(Message.conversation_id == cid).order_by(Message.created_at)))
             log.info("chat_stream gen: %d messages in history for cid=%s", len(hist), cid)
             yield f"data: {json.dumps({'conversation_id': cid})}\n\n"
-            async for t in gemini_service.stream(system, hist):
+            async for t in ai_service.stream(system, hist):
                 buf.append(t); yield f"data: {json.dumps({'text': t})}\n\n"
             yield f"data: {json.dumps({'done': True})}\n\n"
         except Exception as e:
@@ -180,9 +180,9 @@ def chat_stream(b: ChatIn, u: User = Depends(current_user), db: Session = Depend
             log.error("Chat stream failed: type=%s status=%s message=%s", type(e).__name__, status, body)
             log.exception("stream exception details:")
             
-            is_unavailable = any(x in str(e) for x in ["503", "502", "504"]) or status in [503, 502, 504]
+            is_unavailable = any(x in str(e) for x in ["503", "502", "504", "unavailable", "timeout"]) or status in [503, 502, 504]
             code = "AI_TEMPORARILY_UNAVAILABLE" if is_unavailable else "AI_ERROR"
-            msg = "Toby is temporarily unavailable. Please try again in a moment." if is_unavailable else "The AI couldn't complete that response. Please try again."
+            msg = "Sorry, I couldn’t complete that response. Please try again."
             
             yield f"event: error\ndata: {json.dumps({'code': code, 'message': msg})}\n\n"
             yield f"event: done\ndata: {json.dumps({'ok': False})}\n\n"
