@@ -180,10 +180,17 @@ import os
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
-if os.path.exists("dist"):
-    app.mount("/assets", StaticFiles(directory="dist/assets"), name="assets")
-    @app.get("/{full_path:path}")
-    async def serve_spa(full_path: str):
-        if full_path.startswith("api/"):
-            raise HTTPException(status_code=404, detail="API route not found")
-        return FileResponse("dist/index.html")
+BUILD_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "dist")
+ASSETS_DIR = os.path.join(BUILD_DIR, "assets")
+
+if os.path.exists(ASSETS_DIR):
+    app.mount("/assets", StaticFiles(directory=ASSETS_DIR), name="assets")
+
+@app.get("/{full_path:path}")
+async def serve_spa(full_path: str):
+    if full_path.startswith("api/"):
+        raise HTTPException(status_code=404, detail="API route not found")
+    target_file = os.path.join(BUILD_DIR, full_path)
+    if os.path.exists(target_file) and os.path.isfile(target_file):
+        return FileResponse(target_file)
+    return FileResponse(os.path.join(BUILD_DIR, "index.html"))
