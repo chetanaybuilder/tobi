@@ -101,40 +101,58 @@ async def stream(system_prompt, history):
     )
 
     import asyncio
-    max_retries = 3
-    for attempt in range(max_retries):
-        started = False
-        try:
-            response = await client.aio.models.generate_content_stream(
-                model=settings.gemini_model,
-                contents=contents,
-                config=cfg,
-            )
-            async for ch in response:
-                if ch.text:
-                    started = True
-                    yield ch.text
-            return  # success
+    
+    models_to_try = [settings.gemini_model]
+    if settings.gemini_fallback_model and settings.gemini_fallback_model != settings.gemini_model:
+        models_to_try.append(settings.gemini_fallback_model)
 
-        except Exception as e:
-            status = getattr(e, 'status_code', None) or getattr(e, 'code', None)
-            body = getattr(e, 'body', None) or getattr(e, 'message', str(e))
-            log.error(
-                "Gemini API Error (attempt %d/%d): type=%s status=%s message=%s",
-                attempt + 1, max_retries, type(e).__name__, status, body,
-            )
+    last_error = None
+    for m_idx, current_model in enumerate(models_to_try):
+        max_retries = 3
+        for attempt in range(max_retries):
+            started = False
+            try:
+                log.info("Gemini request: model=%s attempt=%d", current_model, attempt + 1)
+                response = await client.aio.models.generate_content_stream(
+                    model=current_model,
+                    contents=contents,
+                    config=cfg,
+                )
+                async for ch in response:
+                    if ch.text:
+                        started = True
+                        yield ch.text
+                return  # success
 
-            # If we already streamed some content, don't retry (partial response is saved)
-            if started:
-                log.warning("Partial response was already streamed — not retrying.")
-                return
+            except Exception as e:
+                status = getattr(e, 'status_code', None) or getattr(e, 'code', None)
+                body = getattr(e, 'body', None) or getattr(e, 'message', str(e))
+                log.error(
+                    "Gemini API Error: model=%s attempt=%d status=%s message=%s",
+                    current_model, attempt + 1, status, body
+                )
+                last_error = e
 
-            # If it's the last attempt or the error isn't retryable, raise
-            if attempt == max_retries - 1 or not _is_retryable(e):
-                log.error("Giving up after %d attempt(s). Retryable=%s", attempt + 1, _is_retryable(e))
-                raise
+                # If we already streamed some content, don't retry (partial response is saved)
+                if started:
+                    log.warning("Partial response was already streamed — not retrying.")
+                    raise
 
-            # Exponential backoff with jitter
-            delay = min(2.0 * (2 ** attempt) + random.uniform(0, 1), 10.0)
-            log.info("Retrying in %.1fs…", delay)
-            await asyncio.sleep(delay)
+                # Check if error is retryable
+                is_transient = _is_retryable(e)
+                if not is_transient:
+                    log.error("Non-retryable error on %s. Moving to fallback if available.", current_model)
+                    break  # Move to next model immediately
+
+                if attempt == max_retries - 1:
+                    log.warning("Exhausted %d attempts for %s.", max_retries, current_model)
+                    break  # Move to next model
+
+                # Exponential backoff with jitter
+                delay = min(2.0 * (2 ** attempt) + random.uniform(0, 1), 10.0)
+                log.info("Retrying %s in %.1fs…", current_model, delay)
+                await asyncio.sleep(delay)
+
+    # If we get here, all models failed
+    log.error("All models failed. Raising final error.")
+    raise last_error

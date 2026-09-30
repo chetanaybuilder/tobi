@@ -111,7 +111,7 @@ export default function App() {
         {msgs.map((m, i) => m.role === 'user' ? <div key={i} className="msg u">{m.content}</div> :
           <div key={i} className="msg a"><div className="who">◉ {cur?.name}</div><ReactMarkdown>{m.content || '…'}</ReactMarkdown>
             {!busy && m.content && <div className="macts"><button onClick={() => navigator.clipboard.writeText(m.content)}>Copy</button>{i === msgs.length - 1 && <button onClick={() => send('', true)}>Regenerate</button>}</div>}</div>)}
-        {error && <p role="alert" className="err">{error}</p>}<div ref={end}/></div>
+        {error && <div className="err-box" style={{display: 'flex', gap: '1rem', alignItems: 'center'}}><p role="alert" className="err" style={{margin: 0}}>{error}</p><button className="primary" onClick={() => send('', true)}>Retry</button></div>}<div ref={end}/></div>
       <form className="composer" onSubmit={e => { e.preventDefault(); send(input) }}>
         <textarea rows="1" aria-label="Message" placeholder={`Message ${cur?.name || ''}…`} value={input} onChange={e => setInput(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(input) } }}/>

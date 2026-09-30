@@ -171,8 +171,13 @@ def chat_stream(b: ChatIn, u: User = Depends(current_user), db: Session = Depend
             body = getattr(e, 'body', None) or getattr(e, 'message', str(e))
             log.error("Chat stream failed: type=%s status=%s message=%s", type(e).__name__, status, body)
             log.exception("stream exception details:")
-            msg = "The API is currently experiencing high demand. Please try again later." if "503" in str(e) else "The AI couldn't complete that response. Please try again."
-            yield f"data: {json.dumps({'error': msg})}\n\n"
+            
+            is_unavailable = any(x in str(e) for x in ["503", "502", "504"]) or status in [503, 502, 504]
+            code = "AI_TEMPORARILY_UNAVAILABLE" if is_unavailable else "AI_ERROR"
+            msg = "Toby is temporarily unavailable. Please try again in a moment." if is_unavailable else "The AI couldn't complete that response. Please try again."
+            
+            yield f"event: error\ndata: {json.dumps({'code': code, 'message': msg})}\n\n"
+            yield f"event: done\ndata: {json.dumps({'ok': False})}\n\n"
         finally:  # also runs when the client hits Stop -> partial reply is kept
             if buf:
                 s.add(Message(conversation_id=cid, role="assistant", content="".join(buf), meta={"mode": mode}))

@@ -18,10 +18,16 @@ export async function streamChat(body, signal, onEvent) {
   for (;;) {
     const { done, value } = await rd.read(); if (done) break
     buf += dec.decode(value, { stream: true }); const parts = buf.split('\n\n'); buf = parts.pop()
-    for (const p of parts) if (p.startsWith('data: ')) {
-      const ev = JSON.parse(p.slice(6))
-      if (ev.error) console.error('[streamChat] Server error event:', ev.error)
-      onEvent(ev)
+    for (const p of parts) {
+      if (p.startsWith('data: ')) {
+        const ev = JSON.parse(p.slice(6))
+        if (ev.error) console.error('[streamChat] Server error event:', ev.error)
+        onEvent(ev)
+      } else if (p.startsWith('event: error\ndata: ')) {
+        const ev = JSON.parse(p.slice(19))
+        console.error('[streamChat] Structured error event:', ev)
+        onEvent({ error: ev.message || 'An error occurred' })
+      }
     }
   }
 }
