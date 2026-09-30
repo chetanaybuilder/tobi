@@ -136,12 +136,20 @@ class ChatIn(BaseModel):
     conversation_id: str | None = None; mode_id: str = "general"
     message: str = Field("", max_length=12000); regenerate: bool = False
 def resolve_prompt(db, u, mode_id, style):
+    base_instructions = """You are Toby, a premium AI assistant.
+Answer directly, accurately, and professionally.
+Be concise for simple questions and detailed for complex ones.
+Use clean formatting (Markdown headings, bullet points, bold text).
+Avoid generic filler, unnecessary introductions, and repetitive conclusions.
+Do not use "As an AI..." or overly enthusiastic fake personas.
+Focus on readable, structured, ChatGPT-style answers.
+"""
     if mode_id.startswith("custom:"):
         m = own_cm(db, u, mode_id[7:])
         p = f"You are a custom AI mode named {m.name}.\n{m.instructions}\nResponse style: {m.response_style}"
     elif mode_id in MODES: p = MODES[mode_id]["system_prompt"]
     else: raise HTTPException(400, "Unknown mode")
-    return p + (f"\nUser's preferred response style: {style}" if style else "")
+    return base_instructions + "\n" + p + (f"\nUser's preferred response style: {style}" if style else "")
 @app.post("/api/chat/stream")
 def chat_stream(b: ChatIn, u: User = Depends(current_user), db: Session = Depends(get_db)):
     if b.conversation_id: c = own_conv(db, u, b.conversation_id); c.mode_id = b.mode_id

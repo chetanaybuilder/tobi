@@ -14,7 +14,7 @@ else:
 log.info("Using model: %s", settings.gemini_model)
 
 client = genai.Client(api_key=settings.gemini_api_key)
-MAX_MSGS, MAX_CHARS = 30, 24000
+MAX_MSGS, MAX_CHARS = 10, 12000
 
 # Status codes that are safe to retry
 RETRYABLE_STATUSES = {429, 500, 502, 503, 504}

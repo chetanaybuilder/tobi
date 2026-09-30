@@ -8,6 +8,18 @@ function Core() {
   return (<div className="scene" aria-hidden="true"><div className="core"/>
     {ORBIT.map((n, i) => <div key={n} className="ring" style={{ '--a': `${i * 60}deg`, '--d': `${i * -4}s` }}><span className="chip">{n}</span></div>)}</div>)
 }
+function Thinking() {
+  return (
+    <div className="thinking-ui" aria-label="Tobi is thinking">
+      <div className="thinking-particles" aria-hidden="true">
+        <div className="p-dot p-1"></div>
+        <div className="p-dot p-2"></div>
+        <div className="p-dot p-3"></div>
+      </div>
+      <div className="thinking-text">Tobi is thinking…</div>
+    </div>
+  )
+}
 function Login({ onUser }) {
   const [err, setErr] = useState('')
   useEffect(() => {
@@ -47,10 +59,18 @@ export default function App() {
   const [convs, setConvs] = useState([]), [active, setActive] = useState(null), [msgs, setMsgs] = useState([])
   const [mode, setMode] = useState('general'), [input, setInput] = useState(''), [busy, setBusy] = useState(false), [error, setError] = useState('')
   const [picker, setPicker] = useState(false), [cform, setCform] = useState(false), [drawer, setDrawer] = useState(false), [q, setQ] = useState(''), [hits, setHits] = useState(null), [view, setView] = useState('chat')
-  const ctl = useRef(null), end = useRef(null)
+  const ctl = useRef(null), end = useRef(null), chatRef = useRef(null), isAtBottom = useRef(true)
+  const [showJump, setShowJump] = useState(false)
   useEffect(() => { api.me().then(setUser).catch(() => setUser(null)) }, [])
   useEffect(() => { if (!user) return; api.modes().then(setModes); api.customModes().then(setCustom); refresh(); setMode(user.preferences?.default_mode || 'general') }, [user?.id])
-  useEffect(() => { end.current?.scrollIntoView({ block: 'end' }) }, [msgs])
+  useEffect(() => { if (isAtBottom.current) end.current?.scrollIntoView({ block: 'end' }) }, [msgs, busy])
+  
+  const handleScroll = (e) => {
+    const { scrollTop, scrollHeight, clientHeight } = e.target
+    const atBottom = scrollHeight - scrollTop - clientHeight < 80
+    isAtBottom.current = atBottom
+    setShowJump(!atBottom && msgs.length > 0)
+  }
   useEffect(() => { if (!q.trim()) return setHits(null); const t = setTimeout(() => api.search(q).then(setHits).catch(() => {}), 250); return () => clearTimeout(t) }, [q])
   const refresh = () => api.convs().then(setConvs)
   const all = [...modes, ...custom], cur = all.find(m => m.slug === mode) || modes[0]
@@ -106,12 +126,14 @@ export default function App() {
     <section className="main">
       <header><button className="burger" aria-label="Menu" onClick={() => setDrawer(!drawer)}>☰</button><b>Tobi</b>
         <button className="modebtn" onClick={() => setPicker(true)}>{cur?.icon} {cur?.name} ▾</button></header>
-      <div className="chat" aria-live="polite">{msgs.length === 0 && <div className="empty"><Core/><h2>{cur?.name}</h2><p>{cur?.description}</p>
+      <div className="chat" aria-live="polite" ref={chatRef} onScroll={handleScroll}>{msgs.length === 0 && <div className="empty"><Core/><h2>{cur?.name}</h2><p>{cur?.description}</p>
         <div className="sugg">{(cur?.suggested_prompts || []).map(p => <button key={p} onClick={() => send(p)}>{p}</button>)}</div></div>}
         {msgs.map((m, i) => m.role === 'user' ? <div key={i} className="msg u">{m.content}</div> :
-          <div key={i} className="msg a"><div className="who">◉ {cur?.name}</div><ReactMarkdown>{m.content || '…'}</ReactMarkdown>
+          <div key={i} className="msg a"><div className="who">◉ {cur?.name}</div>
+            {busy && i === msgs.length - 1 && !m.content ? <Thinking /> : <ReactMarkdown>{m.content}</ReactMarkdown>}
             {!busy && m.content && <div className="macts"><button onClick={() => navigator.clipboard.writeText(m.content)}>Copy</button>{i === msgs.length - 1 && <button onClick={() => send('', true)}>Regenerate</button>}</div>}</div>)}
         {error && <div className="err-box" style={{display: 'flex', gap: '1rem', alignItems: 'center'}}><p role="alert" className="err" style={{margin: 0}}>{error}</p><button className="primary" onClick={() => send('', true)}>Retry</button></div>}<div ref={end}/></div>
+      {showJump && <button className="jump-to-latest" onClick={() => { isAtBottom.current = true; setShowJump(false); end.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }) }}>↓ Jump to latest</button>}
       <form className="composer" onSubmit={e => { e.preventDefault(); send(input) }}>
         <textarea rows="1" aria-label="Message" placeholder={`Message ${cur?.name || ''}…`} value={input} onChange={e => setInput(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(input) } }}/>
