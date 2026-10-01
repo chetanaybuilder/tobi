@@ -1,3 +1,7 @@
+"""
+app/ai_service.py
+Provides robust AI stream interaction with Groq using circuit breakers, fallbacks, and timeouts.
+"""
 import logging, time, asyncio
 from groq import AsyncGroq
 from .config import settings
@@ -73,6 +77,10 @@ def _is_retryable(exc) -> bool:
     return any(kw in msg for kw in ['429', '500', '502', '503', '504', 'overloaded', 'timeout', 'connection', 'unavailable'])
 
 async def stream(system_prompt, history):
+    """
+    Streams AI responses yielding text chunks. 
+    Implements model fallbacks, TTFT timeouts, and exponential backoff states.
+    """
     if not client: raise ValueError("GROQ_API_KEY is missing.")
     messages = build_messages(system_prompt, history)
     if len(messages) < 2: raise ValueError("Empty contents.")

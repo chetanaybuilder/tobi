@@ -1,3 +1,7 @@
+/**
+ * src/App.jsx
+ * Main React component tree orchestrating authentication, conversations, and AI chat interface.
+ */
 import { useEffect, useRef, useState, useMemo } from 'react'
 import ReactMarkdown from 'react-markdown'
 import { api, streamChat } from './api.js'
@@ -54,6 +58,9 @@ function CustomForm({ onSave, onClose, onDelete, existing }) {
     <div className="row"><button type="submit">Save mode</button><button type="button" onClick={onClose}>Cancel</button></div>
     {existing.length > 0 && <div className="cm">{existing.map(m => <div key={m.id} className="row"><span>{m.name}</span><button type="button" onClick={() => onDelete(m.id)}>Delete</button></div>)}</div>}</form></div>)
 }
+/**
+ * The main application wrapper rendering the layout, chat interface, and sidebar.
+ */
 export default function App() {
   const [user, setUser] = useState(undefined), [modes, setModes] = useState([]), [custom, setCustom] = useState([])
   const [convs, setConvs] = useState([]), [active, setActive] = useState(null), [msgs, setMsgs] = useState([])

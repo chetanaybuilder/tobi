@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+        
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: |
+        npm install
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest ruff black pytest-asyncio
+        
+    - name: Lint Python
+      run: |
+        ruff check .
+        black --check .
+        
+    - name: Lint JS
+      run: npm run lint --if-present
+        
+    - name: Run Python Tests
+      env:
+        DATABASE_URL: sqlite:///./test.db
+        GROQ_API_KEY: fake-key
+        GOOGLE_CLIENT_ID: fake-id
+        GOOGLE_CLIENT_SECRET: fake-secret
+        SESSION_SECRET: fake-secret
+      run: pytest tests/
+      
+    - name: Build Frontend
+      run: npm run build

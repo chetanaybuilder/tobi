@@ -1,3 +1,7 @@
+"""
+app/main.py
+FastAPI entry point defining all REST API routes, models, authentication, and core business logic.
+"""
 import json, logging
 from fastapi import FastAPI, Depends, HTTPException, Response, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -27,6 +31,7 @@ async def boom(request, exc):
 
 @app.get("/api/health")
 def health():
+    """Liveness probe for Render deployment."""
     return {"status": "ok"}
 
 def conv_out(c): return dict(id=c.id, mode_id=c.mode_id, title=c.title, is_pinned=c.is_pinned, is_archived=c.is_archived, updated_at=c.updated_at.isoformat() if c.updated_at else None)
@@ -152,6 +157,7 @@ Focus on readable, structured, ChatGPT-style answers.
     return base_instructions + "\n" + p + (f"\nUser's preferred response style: {style}" if style else "")
 @app.post("/api/chat/stream")
 def chat_stream(b: ChatIn, u: User = Depends(current_user), db: Session = Depends(get_db)):
+    """Initiates an AI conversation stream via SSE and persists messages to PostgreSQL/SQLite."""
     if b.conversation_id: c = own_conv(db, u, b.conversation_id); c.mode_id = b.mode_id
     else:
         if not b.message.strip(): raise HTTPException(400, "Message is empty")

@@ -1,0 +1,125 @@
+[
+  {
+    "name": "AI-Chatbot-Assistant",
+    "description": "AI Chatbot | Day 1 | BILLIONERLAB",
+    "visibility": "public",
+    "language": "Python",
+    "topics": [],
+    "html_url": "https://github.com/chetanaybuilder/AI-Chatbot-Assistant"
+  },
+  {
+    "name": "AI-Sales-Intelligent-Platform",
+    "description": null,
+    "visibility": "public",
+    "language": "Python",
+    "topics": [],
+    "html_url": "https://github.com/chetanaybuilder/AI-Sales-Intelligent-Platform"
+  },
+  {
+    "name": "Crypto-Risk-AI",
+    "description": null,
+    "visibility": "public",
+    "language": "Python",
+    "topics": [
+      "ai",
+      "artificial-intelligence",
+      "auth",
+      "crypto",
+      "cryptocurrency",
+      "flask",
+      "google-genai",
+      "postgresql",
+      "python",
+      "webapp"
+    ],
+    "html_url": "https://github.com/chetanaybuilder/Crypto-Risk-AI"
+  },
+  {
+    "name": "Csv-Data-Analyzer",
+    "description": null,
+    "visibility": "public",
+    "language": "Python",
+    "topics": [],
+    "html_url": "https://github.com/chetanaybuilder/Csv-Data-Analyzer"
+  },
+  {
+    "name": "Data-Scraping-Automation",
+    "description": "Day 12 project: A Python web scraper that extracts book titles and prices.",
+    "visibility": "public",
+    "language": "Python",
+    "topics": [],
+    "html_url": "https://github.com/chetanaybuilder/Data-Scraping-Automation"
+  },
+  {
+    "name": "File-Automation-Toolkit",
+    "description": "A collection of Python file automation projects built with os and shutil.",
+    "visibility": "public",
+    "language": "Python",
+    "topics": [],
+    "html_url": "https://github.com/chetanaybuilder/File-Automation-Toolkit"
+  },
+  {
+    "name": "Flask-Web-App",
+    "description": null,
+    "visibility": "public",
+    "language": "HTML",
+    "topics": [],
+    "html_url": "https://github.com/chetanaybuilder/Flask-Web-App"
+  },
+  {
+    "name": "Javascript-Development",
+    "description": null,
+    "visibility": "public",
+    "language": "CSS",
+    "topics": [],
+    "html_url": "https://github.com/chetanaybuilder/Javascript-Development"
+  },
+  {
+    "name": "Quicknotes",
+    "description": null,
+    "visibility": "public",
+    "language": "JavaScript",
+    "topics": [],
+    "html_url": "https://github.com/chetanaybuilder/Quicknotes"
+  },
+  {
+    "name": "React-Development",
+    "description": null,
+    "visibility": "public",
+    "language": "JavaScript",
+    "topics": [],
+    "html_url": "https://github.com/chetanaybuilder/React-Development"
+  },
+  {
+    "name": "RepForge",
+    "description": null,
+    "visibility": "public",
+    "language": "JavaScript",
+    "topics": [],
+    "html_url": "https://github.com/chetanaybuilder/RepForge"
+  },
+  {
+    "name": "Sqlite-Database-Projects",
+    "description": null,
+    "visibility": "public",
+    "language": "Python",
+    "topics": [],
+    "html_url": "https://github.com/chetanaybuilder/Sqlite-Database-Projects"
+  },
+  {
+    "name": "tobi",
+    "description": null,
+    "visibility": "public",
+    "language": "Python",
+    "topics": [],
+    "html_url": "https://github.com/chetanaybuilder/tobi"
+  },
+  {
+    "name": "Trove",
+    "description": null,
+    "visibility": "public",
+    "language": "JavaScript",
+    "topics": [],
+    "html_url": "https://github.com/chetanaybuilder/Trove"
+  }
+]
